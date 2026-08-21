@@ -40,6 +40,7 @@ type Server struct {
 	router       chi.Router
 	api          huma.API
 	port         int
+	bindAddress  string
 	srv          *http.Server
 	mu           sync.RWMutex
 	stopOnce     sync.Once
@@ -107,6 +108,7 @@ type ServerConfig struct {
 	AgentIO                st.AgentIO
 	Transport              Transport
 	Port                   int
+	BindAddress            string
 	ChatBasePath           string
 	AllowedHosts           []string
 	AllowedOrigins         []string
@@ -301,6 +303,7 @@ func NewServer(ctx context.Context, config ServerConfig) (*Server, error) {
 		router:       router,
 		api:          api,
 		port:         config.Port,
+		bindAddress:  config.BindAddress,
 		conversation: conversation,
 		logger:       logger,
 		agentio:      config.AgentIO,
@@ -616,7 +619,11 @@ func (s *Server) subscribeScreen(ctx context.Context, input *struct{}, send sse.
 
 // Start starts the HTTP server
 func (s *Server) Start() error {
-	addr := fmt.Sprintf(":%d", s.port)
+	// An empty bind address (e.g. leaving --bind-address unset) crafts an
+	// address like ":<port>", which net.Listen treats as binding to all
+	// network interfaces. Setting --bind-address to a specific host (for
+	// example "127.0.0.1" or "::1") restricts the server to that interface.
+	addr := fmt.Sprintf("%s:%d", s.bindAddress, s.port)
 	s.srv = &http.Server{
 		Addr:    addr,
 		Handler: s.router,
