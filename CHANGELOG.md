@@ -171,4 +171,4 @@
 
 ### Fixes
 
-- Updated Codex support after its TUI has b
+- Updated Codex support after its TUI has been updated in a recent version.
