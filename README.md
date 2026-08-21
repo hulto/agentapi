@@ -79,6 +79,29 @@ An OpenAPI schema is available in [openapi.json](openapi.json).
 
 By default, the server runs on port 3284. Additionally, the server exposes the same OpenAPI schema at http://localhost:3284/openapi.json and the available endpoints in a documentation UI at http://localhost:3284/docs.
 
+#### Bind address
+
+By default, the server binds to all network interfaces (i.e. it listens on `0.0.0.0`). If you'd like to restrict the interface the server listens on, you can set the bind address by using the `AGENTAPI_BIND_ADDRESS` environment variable or the `--bind-address` flag. The bind address is a hostname or IP address (no port); use `--port` to change the port.
+
+To only accept connections from the local machine (loopback):
+
+```bash
+agentapi server --bind-address 127.0.0.1 -- claude
+# or
+AGENTAPI_BIND_ADDRESS='127.0.0.1' agentapi server -- claude
+```
+
+To bind to a specific network interface or hostname:
+
+```bash
+agentapi server --bind-address 192.168.1.10 -- claude
+```
+
+Leaving `--bind-address` unset (the default) retains the current behavior of binding to all interfaces.
+
+> [!TIP]
+> Restricting the bind address to `127.0.0.1` or `::1` is a good security hardening step, since it ensures the server is only reachable from the machine it runs on. You can combine this with the `--allowed-hosts` check below for an additional layer of protection.
+
 There are 4 endpoints:
 
 - GET `/messages` - returns a list of all messages in the conversation with the agent
