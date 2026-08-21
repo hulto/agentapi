@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -989,4 +991,70 @@ func TestServer_Stop_Idempotency(t *testing.T) {
 	defer cancel3()
 	err = srv.Stop(stopCtx3)
 	require.NoError(t, err)
+}
+
+func TestServer_Start_BindAddress(t *testing.T) {
+	t.Parallel()
+
+	// findFreePort returns an available TCP port by listening on a given
+	// address on port 0, recording the assigned port, and closing the listener.
+	findFreePort := func(addr string) int {
+		l, err := net.Listen("tcp", addr+":0")
+		require.NoError(t, err)
+		port := l.Addr().(*net.TCPAddr).Port
+		require.NoError(t, l.Close())
+		return port
+	}
+
+	newServer := func(bindAddress string, port int) *httpapi.Server {
+		ctx := logctx.WithLogger(context.Background(), slog.New(slog.NewTextHandler(os.Stdout, nil)))
+		s, err := httpapi.NewServer(ctx, httpapi.ServerConfig{
+			AgentType:      msgfmt.AgentTypeClaude,
+			AgentIO:        nil,
+			Port:           port,
+			BindAddress:    bindAddress,
+			ChatBasePath:   "/chat",
+			AllowedHosts:   []string{"*"},
+			AllowedOrigins: []string{"*"},
+		})
+		require.NoError(t, err)
+		return s
+	}
+
+	// A server bound to 127.0.0.1 must be reachable on the loopback interface.
+	t.Run("explicit localhost bind is reachable", func(t *testing.T) {
+		t.Parallel()
+		port := findFreePort("127.0.0.1")
+		s := newServer("127.0.0.1", port)
+		go func() { _ = s.Start() }()
+		t.Cleanup(func() { _ = s.Stop(context.Background()) })
+
+		require.Eventually(t, func() bool {
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/status", port))
+			if err != nil {
+				return false
+			}
+			defer resp.Body.Close()
+			return resp.StatusCode == http.StatusOK
+		}, 5*time.Second, 50*time.Millisecond)
+	})
+
+	// With an empty bind address (the default), the server must bind to all
+	// interfaces, so the loopback interface is reachable too.
+	t.Run("default all-interface bind is reachable via loopback", func(t *testing.T) {
+		t.Parallel()
+		port := findFreePort("127.0.0.1")
+		s := newServer("", port)
+		go func() { _ = s.Start() }()
+		t.Cleanup(func() { _ = s.Stop(context.Background()) })
+
+		require.Eventually(t, func() bool {
+			resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/status", port))
+			if err != nil {
+				return false
+			}
+			defer resp.Body.Close()
+			return resp.StatusCode == http.StatusOK
+		}, 5*time.Second, 50*time.Millisecond)
+	})
 }

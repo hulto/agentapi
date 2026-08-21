@@ -191,11 +191,13 @@ func runServer(ctx context.Context, logger *slog.Logger, argsToPass []string) er
 		agentIO = proc
 	}
 	port := viper.GetInt(FlagPort)
+	bindAddress := viper.GetString(FlagBindAddress)
 	srv, err := httpapi.NewServer(ctx, httpapi.ServerConfig{
 		AgentType:      agentType,
 		AgentIO:        agentIO,
 		Transport:      httpapi.Transport(transport),
 		Port:           port,
+		BindAddress:    bindAddress,
 		ChatBasePath:   viper.GetString(FlagChatBasePath),
 		AllowedHosts:   viper.GetStringSlice(FlagAllowedHosts),
 		AllowedOrigins: viper.GetStringSlice(FlagAllowedOrigins),
@@ -222,7 +224,7 @@ func runServer(ctx context.Context, logger *slog.Logger, argsToPass []string) er
 	// Setup signal handlers (they will call gracefulCancel)
 	handleSignals(gracefulCtx, gracefulCancel, logger, srv)
 
-	logger.Info("Starting server on port", "port", port)
+	logger.Info("Starting server", "bind_address", bindAddress, "port", port)
 
 	// Monitor process exit
 	processExitCh := make(chan error, 1)
@@ -369,6 +371,7 @@ type flagSpec struct {
 const (
 	FlagType            = "type"
 	FlagPort            = "port"
+	FlagBindAddress     = "bind-address"
 	FlagPrintOpenAPI    = "print-openapi"
 	FlagChatBasePath    = "chat-base-path"
 	FlagTermWidth       = "term-width"
@@ -411,6 +414,7 @@ func CreateServerCmd() *cobra.Command {
 	flagSpecs := []flagSpec{
 		{FlagType, "t", "", fmt.Sprintf("Override the agent type (one of: %s, custom)", strings.Join(agentNames, ", ")), "string"},
 		{FlagPort, "p", 3284, "Port to run the server on", "int"},
+		{FlagBindAddress, "", "", "Host or IP address to bind the server to. Leave empty to bind to all interfaces (default). For example '127.0.0.1' to only accept local connections", "string"},
 		{FlagPrintOpenAPI, "P", false, "Print the OpenAPI schema to stdout and exit", "bool"},
 		{FlagChatBasePath, "c", "/chat", "Base path for assets and routes used in the static files of the chat interface", "string"},
 		{FlagTermWidth, "W", uint16(80), "Width of the emulated terminal", "uint16"},

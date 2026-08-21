@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Features
+- Add `--bind-address` / `AGENTAPI_BIND_ADDRESS` to configure the interface the server listens on (e.g. `127.0.0.1` for loopback-only)
+
 ## v0.12.2
 
 ### Fixes
